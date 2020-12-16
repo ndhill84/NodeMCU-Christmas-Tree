@@ -1,4 +1,4 @@
-#include <fauxmoESP.h>
+
 #include <ESPAsyncTCP.h>
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
@@ -7,7 +7,6 @@
 #include <string.h>
 #include "FS.h"
 #include <ESP8266mDNS.h>
-#include <DNSServer.h>
 
 
 extern const char index_html[];
@@ -45,7 +44,6 @@ WS2812FX ws2812fx = WS2812FX(LED_COUNT1, LED_PIN1, NEO_GRB + NEO_KHZ800);
 WS2812FX ws2812fx2 = WS2812FX(LED_COUNT2, LED_PIN2, NEO_GRB + NEO_KHZ800);
 WS2812FX ws2812fx3 = WS2812FX(LED_COUNT3, LED_PIN3, NEO_GRB + NEO_KHZ800);
 WiFiManager wifiManager;
-fauxmoESP fauxmo;
 ESP8266WebServer server(HTTP_PORT);
 
 void setup(){
@@ -93,9 +91,6 @@ wifiManager.autoConnect("Tree-NET");
   ws2812fx3.setBrightness(DEFAULT_BRIGHTNESS);
   ws2812fx3.start();
   server.begin();
-  fauxmo.createServer(true); // not needed, this is the default value
-  fauxmo.setPort(80); // This is required for gen3 devices
-  fauxmo.setRedirect(8080); //redirect everything not found to port 8080
 
   delay(1000);
  
@@ -108,20 +103,10 @@ wifiManager.autoConnect("Tree-NET");
   server.onNotFound(srv_handle_not_found);
   server.begin();
   Serial.println("HTTP server started.");
-  if (MDNS.begin("tree")) {
+  if(MDNS.begin("tree")) {
     Serial.println("MDNS responder started");
   }
-  //fauxmo.enable(true);
-  //fauxmo.addDevice("tree");
-
-  fauxmo.onSetState([](unsigned char device_id, const char * device_name, bool state, unsigned char value) {
-    Serial.printf("[MAIN] Device #%d (%s) state: %s value: %d\n", device_id, device_name, state ? "ON" : "OFF", value);
-    ws2812fx.setMode(FX_MODE_MERRY_CHRISTMAS);
-    ws2812fx2.setMode(FX_MODE_MERRY_CHRISTMAS);
-    ws2812fx3.setMode(FX_MODE_MERRY_CHRISTMAS);
-  }
-  
-  );
+  MDNS.addService("http", "tcp", 80);
   Serial.println("ready!");
 }
 
@@ -129,10 +114,8 @@ wifiManager.autoConnect("Tree-NET");
 void loop() {
 
   unsigned long now = millis();
-
-  server.handleClient();
   MDNS.update();
-  //fauxmo.handle();
+  server.handleClient();
   ws2812fx.service();
   ws2812fx2.service();
   ws2812fx3.service();
@@ -203,7 +186,7 @@ void handleWifiReset(){
  String response="<p>Your network settings have been Cleared.... Restarting. ";
  server.send(200, "text/html", response);
  wifiManager.resetSettings();
- delay(1000);
+ delay(500);
  ESP.restart();
 
 }
@@ -274,11 +257,4 @@ void srv_handle_set() {
     }
   }
   server.send(200, "text/plain", "OK");
-}
-
-void christmasCallback(uint8_t brightness) {
-  Serial.print("Loading christmas preset from Alexa ");Serial.println(brightness);
-  ws2812fx.setMode(FX_MODE_MERRY_CHRISTMAS);
-  ws2812fx2.setMode(FX_MODE_MERRY_CHRISTMAS);
-  ws2812fx3.setMode(FX_MODE_MERRY_CHRISTMAS);
 }
